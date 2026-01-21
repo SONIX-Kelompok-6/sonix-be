@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate
@@ -9,6 +9,7 @@ from .models import UserProfile # Import Model Profile
 
 # --- 1. REGISTER (Tidak Berubah) ---
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def register_user(request):
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
@@ -18,6 +19,7 @@ def register_user(request):
 
 # --- 2. LOGIN (DI-UPDATE) ---
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def login_user(request):
     email = request.data.get('email')
     password = request.data.get('password')
