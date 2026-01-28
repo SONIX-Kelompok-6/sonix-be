@@ -51,20 +51,41 @@ def login_user(request):
     else:
         return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
 
-# --- 3. CREATE PROFILE (BARU) ---
-@api_view(['POST'])
-@permission_classes([IsAuthenticated]) # <--- GEMBOK: Cuma user login yg bisa akses
-def create_profile(request):
-    user = request.user # User didapat otomatis dari Token yang dikirim React
-    
-    # Cek apakah user ini sudah punya profile? (Biar gak dobel)
-    if hasattr(user, 'profile'):
-        return Response({'error': 'Profile already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+# --- 3. USER PROFILE ---
+@api_view(['GET', 'POST', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def manage_profile(request):
+    user = request.user
 
-    # Validasi & Simpan
-    serializer = UserProfileSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save(user=user) # Tempelkan profile ke user yang login
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    # A. GET: Ambil Data Profile (Buat Home/Dashboard nanti)
+    if request.method == 'GET':
+        try:
+            profile = user.profile
+            serializer = UserProfileSerializer(profile)
+            return Response(serializer.data)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # B. POST: Bikin Profile Baru (Buat CreateProfile.jsx)
+    elif request.method == 'POST':
+        if hasattr(user, 'profile'):
+            return Response({'error': 'Profile already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = UserProfileSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # C. PATCH: Update Profile (Opsional, buat fitur edit nanti)
+    elif request.method == 'PATCH':
+        try:
+            profile = user.profile
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

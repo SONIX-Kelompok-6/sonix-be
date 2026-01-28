@@ -20,4 +20,5 @@ class UserSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['foot_width', 'arch_type', 'uses_orthotics', 'injury_history', 'weight_kg', 'preferred_terrain', 'running_purpose']
+        fields = ['id', 'weight_kg', 'foot_width', 'arch_type', 'uses_orthotics', 'injury_history']
+        read_only_fields = ['user']
