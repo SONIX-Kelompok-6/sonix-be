@@ -8,4 +8,6 @@ urlpatterns = [
     path('login/', login_user, name='login'),
     path('profile/', manage_profile, name='user-profile'),
     path('resend-otp/', views.resend_otp, name='resend_otp'),
+    path('forgot-password/', views.forgot_password, name='forgot_password'),
+    path('reset-password/', views.reset_password_confirm, name='reset_password_confirm'),
 ]

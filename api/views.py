@@ -4,8 +4,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token 
 from django.contrib.auth.models import User
+from django.conf import settings
 from .supabase_client import supabase
-# Pastikan 2 baris ini ada (sesuaikan nama file jika beda)
+# Pastikan 2 baris ini ada 
 from .models import UserProfile        
 from .serializers import UserProfileSerializer 
 
@@ -143,5 +144,68 @@ def resend_otp(request):
             "email": email,
         })
         return Response({'message': 'OTP resent successfully!'}, status=200)
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
+    
+# --- F. FORGOT PASSWORD (Send Email Link) ---
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({'error': 'Email is required'}, status=400)
+
+    try:
+        # Arahkan ke URL Frontend React lokal kamu
+        redirect_url = 'http://localhost:5173/update-password'
+        
+        supabase.auth.reset_password_email(email, options={
+            'redirect_to': redirect_url
+        })
+        
+        return Response({'message': 'Password reset link sent to your email.'})
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
+
+
+# --- G. RESET PASSWORD (Set New Password) ---
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password_confirm(request):
+    # Endpoint ini dipanggil SETELAH user klik link di email
+    # Frontend akan mengirimkan 'access_token' (dari URL) dan 'new_password'
+    
+    access_token = request.data.get('access_token')
+    new_password = request.data.get('new_password')
+    
+    if not access_token or not new_password:
+        return Response({'error': 'Token and new password are required'}, status=400)
+
+    try:
+        # 1. Update password di Supabase menggunakan token user
+        # Kita butuh session user yg valid untuk update password
+        # Supabase Python client update_user butuh session yg aktif
+        
+        # Set session manual pakai access_token dari URL
+        supabase.auth.set_session(access_token, request.data.get('refresh_token', '')) 
+        
+        # 2. Update user
+        attributes = {"password": new_password}
+        res = supabase.auth.update_user(attributes)
+        
+        # 3. Sinkronisasi password ke database Django 
+        # Ambil email dari user yg baru saja diupdate
+        user_email = res.user.email
+        try:
+            django_user = User.objects.get(username=user_email)
+            django_user.set_password(new_password)
+            django_user.save()
+        except User.DoesNotExist:
+            pass # Kalau user ga ada di Django, skip aja
+
+        return Response({'message': 'Password has been reset successfully.'})
+
     except Exception as e:
         return Response({'error': str(e)}, status=400)
