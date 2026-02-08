@@ -209,3 +209,15 @@ def reset_password_confirm(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+    
+# --- H. LOGOUT (Invalidate Token) ---
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_user(request):
+    try:
+        # Hapus token user dari database Django
+        # Ini bikin token yang disimpan di frontend jadi "sampah" (gak guna lagi)
+        request.user.auth_token.delete()
+        return Response({'message': 'Logout successful!'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': 'Something went wrong during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
