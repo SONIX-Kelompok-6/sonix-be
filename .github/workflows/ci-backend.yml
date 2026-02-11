@@ -16,7 +16,7 @@ jobs:
     - name: Siapin Environment Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10' # Sesuaikan dengan versi Python yang lu pake
+        python-version: '3.12' # Sesuaikan dengan versi Python yang lu pake
         
     - name: Install Dependencies
       run: |
