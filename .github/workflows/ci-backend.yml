@@ -1,0 +1,28 @@
+name: Backend CI (Django)
+
+# Jalan otomatis tiap ada PR ke branch develop
+on:
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+  test-django:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Mengambil kode dari repository
+      uses: actions/checkout@v4
+    
+    - name: Siapin Environment Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12' # Sesuaikan dengan versi Python yang lu pake
+        
+    - name: Install Dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: Cek Syntax Django (Dry Run)
+      run: |
+        # Ini bakal ngecek apakah ada error fatal di kodingan Django (misal salah spasi/indentasi)
+        python manage.py check

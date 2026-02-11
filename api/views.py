@@ -6,8 +6,15 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from django.conf import settings
 from .supabase_client import supabase
+<<<<<<< HEAD
 from .models import UserProfile,Shoe
 from .serializers import UserProfileSerializer,ShoeSerializer         
+=======
+
+# Pastikan 2 baris ini ada 
+from .models import UserProfile        
+from .serializers import UserProfileSerializer 
+>>>>>>> develop
 
 # --- A. REGISTER (Trigger OTP) ---
 @api_view(['POST'])
@@ -93,7 +100,7 @@ def login_user(request):
         return Response({'error': 'Invalid email or password.'}, status=401)
 
 
-# --- D. MANAGE PROFILE (INI YANG TADI HILANG) ---
+# --- D. MANAGE PROFILE ---
 @api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def manage_profile(request):
@@ -221,7 +228,90 @@ def logout_user(request):
     except Exception as e:
         return Response({'error': 'Something went wrong during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-# --- I. SHOE DETAIL (Ambil data sepatu berdasarkan slug) ---
+# --- I. SEARCH SHOES (VIA SUPABASE API) ---
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def search_shoes(request):
+    query = request.GET.get('q', '')
+
+    if not query:
+        return Response([])
+
+    try:
+        # Langsung nembak ke tabel 'shoes' di Supabase
+        # Asumsi: nama kolomnya 'name' dan 'brand'. (Kalau beda, tinggal ganti kata name/brand di bawah ini)
+        res = supabase.table('shoes').select('*').or_(f"name.ilike.%{query}%,brand.ilike.%{query}%").execute()
+        
+        # Datanya dari Supabase udah otomatis bentuk JSON, jadi bisa langsung dilempar ke React
+        return Response(res.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print("Error search Supabase:", str(e))
+        return Response({'error': 'Gagal mencari sepatu'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+# --- J. TOGGLE FAVORITE ---
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggle_favorite(request):
+    # Ambil ID user dari database Django (int4 sesuai tabel lu)
+    user_id = request.user.id 
+    shoe_id = request.data.get('shoe_id')
+
+    if not shoe_id:
+        return Response({'error': 'shoe_id wajib disertakan.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # 1. Cek di tabel favorites pakai user_id (bukan email)
+        cek_fav = supabase.table('favorites').select('*').eq('user_id', user_id).eq('shoe_id', shoe_id).execute()
+
+        if len(cek_fav.data) > 0:
+            # 2a. Kalau ada, hapus
+            supabase.table('favorites').delete().eq('user_id', user_id).eq('shoe_id', shoe_id).execute()
+            return Response({
+                'message': 'Berhasil dihapus dari favorit',
+                'is_favorite': False
+            }, status=status.HTTP_200_OK)
+        else:
+            # 2b. Kalau tidak ada, masukkan pakai user_id
+            supabase.table('favorites').insert({
+                'user_id': user_id, 
+                'shoe_id': shoe_id
+            }).execute()
+            return Response({
+                'message': 'Berhasil ditambahkan ke favorit',
+                'is_favorite': True
+            }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        print("Error toggle favorite:", str(e))
+        return Response({'error': 'Terjadi kesalahan pada database.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+# --- K. GET ALL FAVORITES (Ambil Semua Sepatu Favorit User) ---
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_favorites(request):
+    user_id = request.user.id
+
+    try:
+        # 1. Ambil list ID sepatu yang di-favorit user ini
+        fav_res = supabase.table('favorites').select('shoe_id').eq('user_id', user_id).execute()
+        
+        shoe_ids = [item['shoe_id'] for item in fav_res.data]
+
+        if not shoe_ids:
+            return Response([], status=status.HTTP_200_OK)
+
+        # 2. Tarik detail sepatunya pakai filter .in_()
+        shoes_res = supabase.table('shoes').select('*').in_('shoe_id', shoe_ids).execute()
+
+        return Response(shoes_res.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print("Error get favorites:", str(e))
+        return Response({'error': 'Gagal mengambil daftar favorit'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+# --- L. SHOE DETAIL (Ambil data sepatu berdasarkan slug) ---
 @api_view(['GET'])
 @permission_classes([AllowAny]) # Siapapun bisa lihat detail sepatu, tidak perlu login
 def get_shoe_detail(request, slug):
