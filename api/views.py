@@ -225,7 +225,7 @@ def logout_user(request):
     except Exception as e:
         return Response({'error': 'Something went wrong during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-# --- I. SEARCH SHOES (VIA SUPABASE API) ---
+# --- I. SEARCH SHOES (SINKRON DENGAN FAVORITE & RATING) ---
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def search_shoes(request):
@@ -235,12 +235,47 @@ def search_shoes(request):
         return Response([])
 
     try:
-        # Langsung nembak ke tabel 'shoes' di Supabase
-        # Asumsi: nama kolomnya 'name' dan 'brand'. (Kalau beda, tinggal ganti kata name/brand di bawah ini)
+        # 1. Tarik data sepatu dari Supabase
         res = supabase.table('shoes').select('*').or_(f"name.ilike.%{query}%,brand.ilike.%{query}%").execute()
+        shoes_data = res.data
+
+        # 2. Ambil daftar favorit user (jika user sedang login)
+        user_favorites = []
+        if request.user.is_authenticated:
+            try:
+                fav_res = supabase.table('favorites').select('shoe_id').eq('user_id', request.user.id).execute()
+                user_favorites = [item['shoe_id'] for item in fav_res.data]
+            except Exception as e:
+                print("Error fetch fav in search:", str(e))
+
+        # 3. Gabungkan data: Tambahkan isFavorite dan Hitung Rating Rata-rata
+        final_results = []
+        for shoe in shoes_data:
+            s_id = shoe.get('shoe_id')
+            
+            # Hitung Rating Rata-rata dari tabel reviews
+            try:
+                rev_res = supabase.table('reviews').select('rating').eq('shoe_id', s_id).execute()
+                if rev_res.data:
+                    avg_rating = sum(r['rating'] for r in rev_res.data) / len(rev_res.data)
+                    avg_rating = round(avg_rating, 1)
+                else:
+                    avg_rating = 0
+            except:
+                avg_rating = 0
+
+            final_results.append({
+                'id': shoe.get('id'),
+                'shoe_id': s_id,
+                'name': shoe.get('name'),
+                'brand': shoe.get('brand'),
+                'img_url': shoe.get('img_url'),
+                'slug': shoe.get('slug'),
+                'rating': avg_rating,
+                'isFavorite': s_id in user_favorites # TRUE jika ada di daftar favorit user
+            })
         
-        # Datanya dari Supabase udah otomatis bentuk JSON, jadi bisa langsung dilempar ke React
-        return Response(res.data, status=status.HTTP_200_OK)
+        return Response(final_results, status=status.HTTP_200_OK)
 
     except Exception as e:
         print("Error search Supabase:", str(e))
@@ -310,29 +345,34 @@ def get_user_favorites(request):
 
 # --- L. SHOE DETAIL (Ambil data sepatu berdasarkan slug) ---
 @api_view(['GET'])
-@permission_classes([AllowAny]) # Anyone can view shoe details, no login required
+@permission_classes([AllowAny]) 
 def get_shoe_detail(request, slug):
     try:
         shoe = Shoe.objects.get(slug=slug)
         serializer = ShoeSerializer(shoe)
         
         response_data = serializer.data
-        
-        # Adjust keys to match the existing frontend
         response_data['mainImage'] = shoe.img_url
         response_data['model'] = shoe.name
         
-        # --- 1. FAVORITE LOGIC ---
+        # --- FIX: FAVORITE LOGIC AGAR TIDAK HILANG SAAT REFRESH ---
         response_data['isFavorite'] = False 
+        
+        # Kita cek apakah user sedang login
         if request.user.is_authenticated:
             try:
-                # Check if this shoe is in the logged-in user's favorites
-                cek_fav = supabase.table('favorites').select('*').eq('user_id', request.user.id).eq('shoe_id', shoe.shoe_id).execute()
+                # Cari di tabel favorites: apakah ada data dengan user_id DAN shoe_id ini?
+                cek_fav = supabase.table('favorites') \
+                    .select('*') \
+                    .eq('user_id', request.user.id) \
+                    .eq('shoe_id', shoe.shoe_id) \
+                    .execute()
+                
+                # Jika datanya ketemu (panjangnya > 0), berarti statusnya True
                 if len(cek_fav.data) > 0:
                     response_data['isFavorite'] = True
             except Exception as e:
-                print("Failed to check favorites:", str(e))
-        # ------------------------------------------------------------------
+                print(f"Gagal verifikasi status favorit: {str(e)}")
         
         response_data['explore'] = []
         
