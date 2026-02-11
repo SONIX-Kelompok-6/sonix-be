@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile
+from .models import UserProfile, Shoe
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,3 +22,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ['id', 'weight_kg', 'foot_width', 'arch_type', 'uses_orthotics', 'injury_history']
         read_only_fields = ['user']
+
+class ShoeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shoe
+        fields = '__all__'
