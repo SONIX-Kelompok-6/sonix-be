@@ -6,6 +6,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from django.conf import settings
 from .supabase_client import supabase
+
 # Pastikan 2 baris ini ada 
 from .models import UserProfile        
 from .serializers import UserProfileSerializer 
@@ -94,7 +95,7 @@ def login_user(request):
         return Response({'error': 'Invalid email or password.'}, status=401)
 
 
-# --- D. MANAGE PROFILE (INI YANG TADI HILANG) ---
+# --- D. MANAGE PROFILE ---
 @api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def manage_profile(request):
@@ -221,3 +222,24 @@ def logout_user(request):
         return Response({'message': 'Logout successful!'}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': 'Something went wrong during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# --- I. SEARCH SHOES (VIA SUPABASE API) ---
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def search_shoes(request):
+    query = request.GET.get('q', '')
+
+    if not query:
+        return Response([])
+
+    try:
+        # Langsung nembak ke tabel 'shoes' di Supabase
+        # Asumsi: nama kolomnya 'name' dan 'brand'. (Kalau beda, tinggal ganti kata name/brand di bawah ini)
+        res = supabase.table('shoes').select('*').or_(f"name.ilike.%{query}%,brand.ilike.%{query}%").execute()
+        
+        # Datanya dari Supabase udah otomatis bentuk JSON, jadi bisa langsung dilempar ke React
+        return Response(res.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print("Error search Supabase:", str(e))
+        return Response({'error': 'Gagal mencari sepatu'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
