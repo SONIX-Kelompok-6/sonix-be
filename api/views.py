@@ -310,26 +310,109 @@ def get_user_favorites(request):
 
 # --- L. SHOE DETAIL (Ambil data sepatu berdasarkan slug) ---
 @api_view(['GET'])
-@permission_classes([AllowAny]) # Siapapun bisa lihat detail sepatu, tidak perlu login
+@permission_classes([AllowAny]) # Anyone can view shoe details, no login required
 def get_shoe_detail(request, slug):
     try:
         shoe = Shoe.objects.get(slug=slug)
         serializer = ShoeSerializer(shoe)
         
-        # Karena di frontend kamu butuh data tambahan (explore, isFavorite, dll),
-        # kita modifikasi sedikit bentuk response-nya
         response_data = serializer.data
         
-        # Kita sesuaikan key-nya agar cocok dengan frontend yang sudah kita buat
-        response_data['mainImage'] = shoe.image_url
-        response_data['model'] = shoe.model_name
-        response_data['isFavorite'] = False # Default false (nanti bisa diubah pakai logika User)
+        # Adjust keys to match the existing frontend
+        response_data['mainImage'] = shoe.img_url
+        response_data['model'] = shoe.name
         
-        # Dummy data untuk 'explore' dan 'reviews' (karena tabelnya belum ada)
+        # --- 1. FAVORITE LOGIC ---
+        response_data['isFavorite'] = False 
+        if request.user.is_authenticated:
+            try:
+                # Check if this shoe is in the logged-in user's favorites
+                cek_fav = supabase.table('favorites').select('*').eq('user_id', request.user.id).eq('shoe_id', shoe.shoe_id).execute()
+                if len(cek_fav.data) > 0:
+                    response_data['isFavorite'] = True
+            except Exception as e:
+                print("Failed to check favorites:", str(e))
+        # ------------------------------------------------------------------
+        
         response_data['explore'] = []
-        response_data['reviews'] = []
+        
+        # --- 2. LOGIC TO FETCH REVIEWS & CALCULATE AVERAGE RATING ---
+        try:
+            # Get all comments for this shoe from the reviews table
+            reviews_db = supabase.table('reviews').select('*').eq('shoe_id', shoe.shoe_id).order('created_at', desc=True).execute()
+            
+            formatted_reviews = []
+            total_rating = 0 # Variable to accumulate all ratings
+            
+            for rv in reviews_db.data:
+                raw_date = rv.get('created_at', '')
+                clean_date = raw_date[:10] if raw_date else "Just now"
+                current_rating = rv.get('rating', 0)
+                user_id = rv.get('user_id')
+
+                # Fetch actual username/email from Django's User model
+                try:
+                    user_obj = User.objects.get(id=user_id)
+                    # Use email prefix if available, otherwise fallback to username
+                    display_name = user_obj.email.split('@')[0] if user_obj.email else user_obj.username
+                except User.DoesNotExist:
+                    display_name = f"User {user_id}"
+
+                # Add to total rating for average calculation
+                total_rating += current_rating
+
+                formatted_reviews.append({
+                    'id': rv.get('id'),
+                    'user': display_name,
+                    'avatar': f"https://api.dicebear.com/7.x/avataaars/svg?seed={display_name}", 
+                    'date': clean_date,
+                    'text': rv.get('review_text', ''),
+                    'rating': current_rating
+                })
+                
+            response_data['reviews'] = formatted_reviews
+            
+            # Calculate the average rating for the top UI
+            if len(reviews_db.data) > 0:
+                average = total_rating / len(reviews_db.data)
+                response_data['rating'] = round(average, 1) # Rounds to 1 decimal point (e.g., 4.5)
+            else:
+                response_data['rating'] = 0
+            
+        except Exception as e:
+            print("Failed to fetch reviews from Supabase:", str(e))
+            response_data['reviews'] = []
+            response_data['rating'] = 0 
+        # -------------------------------------------------
 
         return Response(response_data, status=status.HTTP_200_OK)
     
     except Shoe.DoesNotExist:
-        return Response({'error': 'Sepatu tidak ditemukan'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Shoe not found'}, status=status.HTTP_404_NOT_FOUND)
+
+# --- M. ADD REVIEW (User Menambahkan Review ke Sepatu) ---    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated]) # Wajib login buat komen
+def add_review(request):
+    user_id = request.user.id
+    shoe_id = request.data.get('shoe_id')
+    rating = request.data.get('rating')
+    review_text = request.data.get('text')
+
+    if not shoe_id or not rating or not review_text:
+        return Response({'error': 'All data (shoe_id, rating, text) must be provided!'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Insert new review data into the reviews table in Supabase
+        supabase.table('reviews').insert({
+            'shoe_id': shoe_id,
+            'user_id': user_id,
+            'rating': int(rating),
+            'review_text': review_text
+        }).execute()
+
+        return Response({'message': 'Review successfully added!'}, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        print("Error add review:", str(e))
+        return Response({'error': 'Failed to add review.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

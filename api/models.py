@@ -34,21 +34,37 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username}'s Profile"
 
-
 class Shoe(models.Model):
+    shoe_id = models.CharField(max_length=50, primary_key=True)
     brand = models.CharField(max_length=100)
-    model_name = models.CharField(max_length=200) # Cth: "Nike Winflo 10"
+    name = models.CharField(max_length=200) # Cth: "Nike Winflo 10"
     slug = models.SlugField(unique=True, blank=True, null=True) # Cth: "nike-winflo-10"
-    weight = models.CharField(max_length=50, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    rating = models.DecimalField(max_digits=3, decimal_places=1, default=0.0)
-    image_url = models.URLField(max_length=500, blank=True, null=True)
+    weight_lab_oz = models.FloatField(blank=True, null=True)
+    # rating = models.DecimalField(max_digits=3, decimal_places=1, default=0.0)
+    img_url = models.URLField(max_length=500, blank=True, null=True)
 
-    # Otomatis membuat slug saat data disimpan
-    def save(self, *args, **kwargs):
-        if not self.slug and self.model_name:
-            self.slug = slugify(self.model_name)
-        super().save(*args, **kwargs)
+    class Meta:
+        # 1. Kasih tau nama tabel asli kamu di Supabase (misal namanya 'shoes')
+        db_table = 'shoes' 
+        
+        # 2. Kasih tau Django untuk TIDAK membuat ulang tabel ini
+        managed = False 
 
     def __str__(self):
-        return f"{self.brand} {self.model_name}"
+        return f"{self.brand} {self.name}"
+    
+class Review(models.Model):
+    # Nama kolom harus sama persis dengan yang di Supabase ya!
+    shoe_id = models.CharField(max_length=50) 
+    user_id = models.IntegerField()
+    rating = models.IntegerField(default=0)
+    review_text = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'reviews'
+        managed = False 
+
+    def __str__(self):
+        return f"Review by User {self.user_id} on Shoe {self.shoe_id}"
