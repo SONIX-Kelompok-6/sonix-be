@@ -6,9 +6,8 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from django.conf import settings
 from .supabase_client import supabase
-# Pastikan 2 baris ini ada 
-from .models import UserProfile        
-from .serializers import UserProfileSerializer 
+from .models import UserProfile,Shoe
+from .serializers import UserProfileSerializer,ShoeSerializer         
 
 # --- A. REGISTER (Trigger OTP) ---
 @api_view(['POST'])
@@ -221,3 +220,29 @@ def logout_user(request):
         return Response({'message': 'Logout successful!'}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': 'Something went wrong during logout.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+# --- I. SHOE DETAIL (Ambil data sepatu berdasarkan slug) ---
+@api_view(['GET'])
+@permission_classes([AllowAny]) # Siapapun bisa lihat detail sepatu, tidak perlu login
+def get_shoe_detail(request, slug):
+    try:
+        shoe = Shoe.objects.get(slug=slug)
+        serializer = ShoeSerializer(shoe)
+        
+        # Karena di frontend kamu butuh data tambahan (explore, isFavorite, dll),
+        # kita modifikasi sedikit bentuk response-nya
+        response_data = serializer.data
+        
+        # Kita sesuaikan key-nya agar cocok dengan frontend yang sudah kita buat
+        response_data['mainImage'] = shoe.image_url
+        response_data['model'] = shoe.model_name
+        response_data['isFavorite'] = False # Default false (nanti bisa diubah pakai logika User)
+        
+        # Dummy data untuk 'explore' dan 'reviews' (karena tabelnya belum ada)
+        response_data['explore'] = []
+        response_data['reviews'] = []
+
+        return Response(response_data, status=status.HTTP_200_OK)
+    
+    except Shoe.DoesNotExist:
+        return Response({'error': 'Sepatu tidak ditemukan'}, status=status.HTTP_404_NOT_FOUND)
