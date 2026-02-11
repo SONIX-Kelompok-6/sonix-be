@@ -6,15 +6,12 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from django.conf import settings
 from .supabase_client import supabase
-<<<<<<< HEAD
 from .models import UserProfile,Shoe
 from .serializers import UserProfileSerializer,ShoeSerializer         
-=======
 
 # Pastikan 2 baris ini ada 
 from .models import UserProfile        
 from .serializers import UserProfileSerializer 
->>>>>>> develop
 
 # --- A. REGISTER (Trigger OTP) ---
 @api_view(['POST'])
