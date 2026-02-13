@@ -6,7 +6,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     
     # 1. Berat Badan (Tetap Wajib)
-    weight_kg = models.IntegerField()
+    # weight_kg = models.IntegerField()
     
     # 2. Foot Width
     FOOT_WIDTH_CHOICES = [
@@ -29,7 +29,7 @@ class UserProfile(models.Model):
     
     # 5. Injuries (Baru: List of strings)
     # Contoh isi: ["Knee Pain", "Toe Injury"]
-    injury_history = models.JSONField(default=list, blank=True)
+    # injury_history = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
