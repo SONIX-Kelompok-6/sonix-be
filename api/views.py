@@ -6,7 +6,8 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from .supabase_client import supabase
 from .models import UserProfile, Shoe
-from .serializers import UserProfileSerializer, ShoeSerializer         
+# 👇 UPDATE IMPORT: Pastikan UserDetailSerializer ada di sini
+from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerializer       
 
 # --- A. REGISTER (Trigger OTP) ---
 @api_view(['POST'])
@@ -92,20 +93,18 @@ def login_user(request):
         return Response({'error': 'Invalid email or password.'}, status=401)
 
 
-# --- D. MANAGE PROFILE ---
+# --- D. MANAGE PROFILE (UPDATED) ---
+# 👇 INI BAGIAN PENTING YANG DI-UPDATE AGAR USERNAME MUNCUL DI ACCOUNT
 @api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def manage_profile(request):
     user = request.user 
 
-    # 1. GET: Ambil Data Profile
+    # 1. GET: Ambil Data User LENGKAP (Username + Profile)
     if request.method == 'GET':
-        try:
-            profile = user.profile
-            serializer = UserProfileSerializer(profile)
-            return Response(serializer.data)
-        except UserProfile.DoesNotExist:
-            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Pakai UserDetailSerializer supaya dapat username & email
+        serializer = UserDetailSerializer(user)
+        return Response(serializer.data)
 
     # 2. POST: Bikin Profile Baru
     elif request.method == 'POST':
@@ -115,7 +114,9 @@ def manage_profile(request):
         serializer = UserProfileSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # Return full data agar frontend langsung update state
+            full_data = UserDetailSerializer(user).data
+            return Response(full_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     # 3. PATCH: Update Profile
@@ -128,7 +129,9 @@ def manage_profile(request):
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            # Return full data agar frontend langsung update state
+            full_data = UserDetailSerializer(user).data
+            return Response(full_data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 # --- E. RESEND OTP ---
@@ -421,7 +424,7 @@ def get_shoe_detail(request, slug):
     except Shoe.DoesNotExist:
         return Response({'error': 'Shoe not found'}, status=status.HTTP_404_NOT_FOUND)
 
-# --- M. ADD REVIEW (User Menambahkan Review ke Sepatu) ---    
+# --- M. ADD REVIEW (User Menambahkan Review ke Sepatu) ---     
 @api_view(['POST'])
 @permission_classes([IsAuthenticated]) # Wajib login buat komen
 def add_review(request):
@@ -448,12 +451,11 @@ def add_review(request):
         print("Error add review:", str(e))
         return Response({'error': 'Failed to add review.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# --- N. GET ALL SHOES (Untuk Fitur Compare) ---
+# --- N. GET ALL SHOES (Untuk Fitur Compare & Recommendation) ---
 @api_view(['GET'])
 @permission_classes([IsAuthenticated]) 
 def get_all_shoes(request):
     try:
-        
         # Kita select '*' agar semua kolom spesifikasi (weight, drop, arch, dll) terambil
         response = supabase.table('shoes').select('*').execute()
         

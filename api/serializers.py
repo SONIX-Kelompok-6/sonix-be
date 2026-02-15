@@ -20,8 +20,15 @@ class UserSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['id','foot_width', 'arch_type', 'uses_orthotics']
-        read_only_fields = ['user']
+        fields = ['foot_width', 'arch_type', 'uses_orthotics']
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    # Kita masukkan profile ke dalam user
+    profile = UserProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'date_joined', 'profile']
 
 class ShoeSerializer(serializers.ModelSerializer):
     class Meta:
