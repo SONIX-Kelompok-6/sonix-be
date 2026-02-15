@@ -32,7 +32,6 @@ ALLOWED_HOSTS = ['*']
 
 CSRF_TRUSTED_ORIGINS = [
     'https://sonix-be-deploy-production.up.railway.app',
-    'https://sonix-rush.vercel.app',
 ]
 
 # Application definition
@@ -154,11 +153,10 @@ if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # tambahan manual untuk CORS
-CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "https://sonix-rush.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://sonix-rush.vercel.app",
 ]
 
 # rest framework settings
