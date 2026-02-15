@@ -1,4 +1,4 @@
-name: Deploy Bridge to Private Repo
+name: CI/CD Pipeline (Test & Deploy)
 
 on:
   push:
@@ -6,7 +6,35 @@ on:
       - main
 
 jobs:
-  build:
+  # --- TAHAP 1: TESTING (CI) ---
+  # Ini bakal jalan duluan buat ngecek codingan aman/gak
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12' # Sesuaikan sama versi python project lu (misal 3.10/3.11)
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django Tests
+        # Kita kasih environment palsu biar test-nya jalan tanpa perlu .env asli
+        env:
+          SECRET_KEY: "django-insecure-test-key-dummy" 
+          DEBUG: "True"
+        run: |
+          python manage.py test
+
+  # --- TAHAP 2: DEPLOY BRIDGE (CD) ---
+  # Ini kode lama lu, tapi gua tambahin syarat 'needs'
+  deploy-bridge:
+    needs: test-backend  # <--- WAJIB: Dia nunggu tahap 1 sukses dulu baru jalan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -20,7 +48,7 @@ jobs:
           API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
         with:
           source-directory: '.'
-          destination-github-username: 'wilsonPhan02' # Username GitHub Lu
-          destination-repository-name: 'sonix-be-deploy' # Nama Repo Deploy Lu
-          user-email: wilsonphan002@example.com # Ganti email GitHub lu (bebas sih)
+          destination-github-username: 'wilsonPhan02'
+          destination-repository-name: 'sonix-be-deploy'
+          user-email: wilsonphan002@example.com
           target-branch: main
