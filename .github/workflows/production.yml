@@ -1,0 +1,26 @@
+name: Deploy Bridge to Private Repo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          
+      - name: Push to Private Repo
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+        with:
+          source-directory: '.'
+          destination-github-username: 'wilsonPhan02' # Username GitHub Lu
+          destination-repository-name: 'sonix-be-deploy' # Nama Repo Deploy Lu
+          user-email: wilsonphan002@example.com # Ganti email GitHub lu (bebas sih)
+          target-branch: main
