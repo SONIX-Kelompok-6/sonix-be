@@ -4,14 +4,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token 
 from django.contrib.auth.models import User
-from django.conf import settings
 from .supabase_client import supabase
-from .models import UserProfile,Shoe
-from .serializers import UserProfileSerializer,ShoeSerializer         
-
-# Pastikan 2 baris ini ada 
-from .models import UserProfile        
-from .serializers import UserProfileSerializer 
+from .models import UserProfile, Shoe
+from .serializers import UserProfileSerializer, ShoeSerializer         
 
 # --- A. REGISTER (Trigger OTP) ---
 @api_view(['POST'])
@@ -188,9 +183,6 @@ def reset_password_confirm(request):
 
     try:
         # 1. Update password di Supabase menggunakan token user
-        # Kita butuh session user yg valid untuk update password
-        # Supabase Python client update_user butuh session yg aktif
-        
         # Set session manual pakai access_token dari URL
         supabase.auth.set_session(access_token, request.data.get('refresh_token', '')) 
         
@@ -219,7 +211,6 @@ def reset_password_confirm(request):
 def logout_user(request):
     try:
         # Hapus token user dari database Django
-        # Ini bikin token yang disimpan di frontend jadi "sampah" (gak guna lagi)
         request.user.auth_token.delete()
         return Response({'message': 'Logout successful!'}, status=status.HTTP_200_OK)
     except Exception as e:
@@ -456,3 +447,24 @@ def add_review(request):
     except Exception as e:
         print("Error add review:", str(e))
         return Response({'error': 'Failed to add review.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# --- N. GET ALL SHOES (Untuk Fitur Compare) ---
+@api_view(['GET'])
+@permission_classes([IsAuthenticated]) 
+def get_all_shoes(request):
+    try:
+        
+        # Kita select '*' agar semua kolom spesifikasi (weight, drop, arch, dll) terambil
+        response = supabase.table('shoes').select('*').execute()
+        
+        if response.data:
+            return Response(response.data, status=status.HTTP_200_OK)
+        else:
+            return Response([], status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print("Error fetching all shoes for compare:", str(e))
+        return Response(
+            {'error': 'Gagal mengambil data sepatu dari server.'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
