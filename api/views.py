@@ -82,51 +82,55 @@ def verify_otp(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_user(request):
-    identifier = request.data.get('identifier')
+    # 1. TANGKAP DATA (Support 'username' atau 'identifier' dari frontend)
+    # Frontend kamu tadi ngirimnya key 'username', jadi kita ambil itu.
+    input_ident = request.data.get('username') or request.data.get('identifier')
     password = request.data.get('password')
 
-    if not identifier or not password:  
+    if not input_ident or not password:  
         return Response({'error': 'Please provide both username/email and password.'}, status=400)
 
-    # Verify if identifier is email or username
-    email_to_login = None
-    if '@' in identifier:
-        email_to_login = identifier
-    else:
-        try:
-            user_obj = User.objects.get(username=identifier)
-            email_to_login = user_obj.email
-        except User.DoesNotExist:
-            return Response({'error': 'Username not found.'}, status=401)
+    # 2. LOGIKA CEK EMAIL vs USERNAME
+    # Kita harus cari tahu 'username' aslinya apa buat dikasih ke fungsi authenticate
+    username_to_auth = input_ident
 
-    try:
-        res = supabase.auth.sign_in_with_password({
-            "email": email_to_login,
-            "password": password
-        })
-        
-        # 2. Kalau password benar, cari user di database Django
+    if '@' in input_ident:
+        # Kalau user login pakai EMAIL, kita cari dulu username aslinya di DB
         try:
-            user = User.objects.get(username=email_to_login)
+            user_obj = User.objects.get(email=input_ident)
+            username_to_auth = user_obj.username
         except User.DoesNotExist:
-            user = User.objects.create_user(username=email_to_login, email=email_to_login, password=password)
+            # Kalau email gak ketemu, biarin lanjut biar nanti ditolak sama authenticate (security practice)
+            pass
+    
+    # 3. AUTENTIKASI PAKAI DJANGO (Bukan Supabase Client)
+    # Fungsi ini otomatis ngecek password hash PBKDF2 punya Django
+    user = authenticate(username=username_to_auth, password=password)
+
+    if user is not None:
+        # --- LOGIN SUKSES ---
         
-        # 3. BIKIN TOKEN DJANGO (Kartu Member Resmi)
+        # Cek apakah user aktif
+        if not user.is_active:
+             return Response({'error': 'User account is disabled.'}, status=401)
+
+        # Bikin/Ambil Token
         token, created = Token.objects.get_or_create(user=user)
 
-        # 4. Cek Profile
+        # Cek Profile
         has_profile = hasattr(user, 'profile')
 
         return Response({
             'message': 'Login successful!',
             'token': token.key, 
-            'email': email_to_login, 
+            'email': user.email, 
             'username': user.username,
             'has_profile': has_profile
         }, status=200)
 
-    except Exception as e:
-        return Response({'error': 'Invalid email or password.'}, status=401)
+    else:
+        # --- LOGIN GAGAL ---
+        return Response({'error': 'Invalid username/email or password.'}, status=401)
 
 
 # --- D. MANAGE PROFILE (UPDATED) ---
