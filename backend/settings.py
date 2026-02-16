@@ -162,7 +162,13 @@ CORS_ALLOWED_ORIGINS = [
     "https://sonix-rush.vercel.app",
     # "https://sonix-rush-beta.vercel.app",
 ]
+AUTH_USER_MODEL = 'api.User'
 
+# Opsional: Pastikan ini benar untuk deployment (WhiteNoise)
+if not DEBUG:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    
 # rest framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
