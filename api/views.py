@@ -6,7 +6,6 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from .supabase_client import supabase
 from .models import UserProfile, Shoe
-# 👇 UPDATE IMPORT: Pastikan UserDetailSerializer ada di sini
 from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerializer       
 
 # --- A. REGISTER (Trigger OTP) ---
@@ -17,14 +16,18 @@ def register_user(request):
     email = request.data.get('email')
     password = request.data.get('password')
 
-    # Validating user input
     if not username or not email or not password:
         return Response({'error': 'All fields are required.'}, status=400)
-        
-    if User.objects.filter(username=username).exists():
+
+    # normalize
+    email = email.lower().strip()
+    username = username.strip() 
+
+    if User.objects.filter(username__iexact=username).exists():
         return Response({'username': 'This username is already taken.'}, status=400)
 
-
+    if User.objects.filter(email=email).exists(): 
+        return Response({'email': ['Email is already registered.']}, status=400)
     try:
         res = supabase.auth.sign_up({
             "email": email,
@@ -97,7 +100,9 @@ def login_user(request):
             user_obj = User.objects.get(username=identifier)
             email_to_login = user_obj.email
         except User.DoesNotExist:
-            return Response({'error': 'Username not found.'}, status=401)
+            return Response({
+                'error': 'Username not found locally. Please try logging in with your Email Address.'
+            }, status=401)
 
     try:
         res = supabase.auth.sign_in_with_password({
@@ -130,7 +135,6 @@ def login_user(request):
 
 
 # --- D. MANAGE PROFILE (UPDATED) ---
-# 👇 INI BAGIAN PENTING YANG DI-UPDATE AGAR USERNAME MUNCUL DI ACCOUNT
 @api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def manage_profile(request):
