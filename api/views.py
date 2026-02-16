@@ -14,7 +14,6 @@ from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerial
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
-    username = request.data.get('username')
     email = request.data.get('email')
     password = request.data.get('password')
 
@@ -52,7 +51,6 @@ def register_user(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verify_otp(request):
-    username = request.data.get('username')
     email = request.data.get('email')
     token = request.data.get('otp')      
     password = request.data.get('password') # Password dari Frontend
