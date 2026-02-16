@@ -397,19 +397,37 @@ def toggle_favorite(request):
 def get_user_favorites(request):
     user_id = request.user.id
     try:
-        # Ambil list ID sepatu favorit user
+        # 1. Ambil list ID sepatu favorit user
         fav_res = supabase.table('favorites').select('shoe_id').eq('user_id', user_id).execute()
         shoe_ids = [item['shoe_id'] for item in fav_res.data]
         
         if not shoe_ids: return Response([], status=200)
         
-        # Ambil detail sepatunya
+        # 2. Ambil detail sepatu mentah dari Supabase
         shoes_res = supabase.table('shoes').select('*').in_('shoe_id', shoe_ids).execute()
-        return Response(shoes_res.data, status=200)
+        shoes_data = shoes_res.data
+        
+        # 3. (BARU) HITUNG RATING UNTUK SETIAP SEPATU
+        for shoe in shoes_data:
+            s_id = shoe.get('shoe_id')
+            try:
+                # Query ke tabel reviews berdasarkan shoe_id
+                rev_res = supabase.table('reviews').select('rating').eq('shoe_id', s_id).execute()
+                
+                # Hitung Rata-rata
+                if rev_res.data:
+                    avg_rating = sum(r['rating'] for r in rev_res.data) / len(rev_res.data)
+                    shoe['rating'] = round(avg_rating, 1) # Masukkan hasil ke dictionary sepatu
+                else:
+                    shoe['rating'] = 0 # Kalau belum ada review
+            except:
+                shoe['rating'] = 0
+
+        # 4. Return data yang sudah ada rating-nya
+        return Response(shoes_data, status=200)
+
     except Exception as e:
         print("ERROR ASLI:", str(e))
-        print(traceback.format_exc())
-        # return Response({'error': 'Gagal mengambil data favorit.'}, status=500)
         return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])
