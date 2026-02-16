@@ -4,12 +4,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token 
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 from .supabase_client import supabase
 from .models import UserProfile, Shoe
 # 👇 UPDATE IMPORT: Pastikan UserDetailSerializer ada di sini
 from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerializer       
 
-# --- A. REGISTER (Trigger OTP) ---
+# --- A. REGISTER (Trigger OTP via Supabase) ---
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
@@ -17,65 +18,74 @@ def register_user(request):
     email = request.data.get('email')
     password = request.data.get('password')
 
-    # Validating user input
+    # 1. Validasi Input Dasar
     if not username or not email or not password:
         return Response({'error': 'All fields are required.'}, status=400)
         
+    # 2. Cek apakah Username ATAU Email sudah ada di Django (PENTING!)
     if User.objects.filter(username=username).exists():
-        return Response({'username': 'This username is already taken.'}, status=400)
-
+        return Response({'error': 'This username is already taken.'}, status=400)
+    
+    if User.objects.filter(email=email).exists():
+        return Response({'error': 'This email is already registered.'}, status=400)
 
     try:
+        # 3. Minta Supabase kirim OTP (Sign Up)
+        # Kita tidak peduli user di Supabase Auth, kita cuma butuh OTP-nya.
         res = supabase.auth.sign_up({
             "email": email,
-            "password": password,
+            "password": password, # Password ini cuma buat syarat Supabase, yg asli nanti di Django
         })
 
-        
+        # Cek response spesifik Supabase kalau user double
         if res.user and getattr(res.user, 'identities', []) == []:
-             return Response({'error': 'Email is already registered.'}, status=400)
+             return Response({'error': 'This email is already registered in OTP system.'}, status=400)
 
         return Response({'message': 'OTP sent to email!'}, status=201)
 
     except Exception as e:
-        print("ERROR SUPABASE:", str(e))
+        # Tangkap error dari Supabase
         return Response({'error': str(e)}, status=400)
 
 
-# --- B. VERIFY OTP (Validate & Sync to Django) ---
+# --- B. VERIFY OTP (Validate & Save to Django) ---
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verify_otp(request):
     username = request.data.get('username')
     email = request.data.get('email')
     token = request.data.get('otp')      
-    password = request.data.get('password') 
+    password = request.data.get('password') # Password dari Frontend
 
-    if not username:
-        return Response({'error': 'Username is missing.'}, status=400)
+    if not username or not email or not token or not password:
+        return Response({'error': 'Missing required fields.'}, status=400)
 
     try:
+        # 1. Verifikasi OTP ke Supabase
         res = supabase.auth.verify_otp({
             "email": email,
             "token": token,
             "type": "signup"
         })
 
-        # Kalo nabrak antara user 
+        # 2. Validasi Terakhir Sebelum Simpan ke Django
         if User.objects.filter(username=username).exists():
-            return Response({'error': 'Username was taken during verification. Please register again.'}, status=400)
+            return Response({'error': 'Username was taken during verification.'}, status=400)
 
+        # 3. SIMPAN USER KE DJANGO (The Real Database)
+        # Fungsi create_user otomatis nge-hash password pakai PBKDF2 (Aman untuk Login nanti)
         if not User.objects.filter(email=email).exists():
             User.objects.create_user(
                 username=username, 
                 email=email, 
                 password=password
             )
-        
-        return Response({'message': 'Verification successful & User saved to Django!'}, status=201)
+            return Response({'message': 'Verification successful & User created!'}, status=201)
+        else:
+            return Response({'error': 'User with this email already exists in Database.'}, status=400)
 
     except Exception as e:
-        return Response({'error': 'Invalid or expired OTP.'}, status=400)
+        return Response({'error': 'Invalid OTP code or expired.'}, status=400)
 
 
 # --- C. LOGIN (Proxy Login) ---
