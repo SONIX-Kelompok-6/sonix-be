@@ -8,7 +8,9 @@ from django.contrib.auth import authenticate
 from .supabase_client import supabase
 # Import model User custom kita dan model lainnya
 from .models import User, UserProfile, Shoe, Review 
-from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerializer       
+from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerializer    
+
+import traceback
 
 # ============================================================================
 # BAGIAN A: AUTHENTICATION (REGISTER, LOGIN, OTP)
@@ -404,8 +406,11 @@ def get_user_favorites(request):
         # Ambil detail sepatunya
         shoes_res = supabase.table('shoes').select('*').in_('shoe_id', shoe_ids).execute()
         return Response(shoes_res.data, status=200)
-    except Exception:
-        return Response({'error': 'Gagal mengambil data favorit.'}, status=500)
+    except Exception as e:
+        print("ERROR ASLI:", str(e))
+        print(traceback.format_exc())
+        # return Response({'error': 'Gagal mengambil data favorit.'}, status=500)
+        return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
