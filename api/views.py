@@ -4,93 +4,141 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token 
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 from .supabase_client import supabase
 from .models import UserProfile, Shoe
 # 👇 UPDATE IMPORT: Pastikan UserDetailSerializer ada di sini
 from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerializer       
 
-# --- A. REGISTER (Trigger OTP) ---
+# --- A. REGISTER (Trigger OTP via Supabase) ---
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
     email = request.data.get('email')
     password = request.data.get('password')
 
+    # 1. Validasi Input Dasar
+    if not username or not email or not password:
+        return Response({'error': 'All fields are required.'}, status=400)
+        
+    # 2. Cek apakah Username ATAU Email sudah ada di Django (PENTING!)
+    if User.objects.filter(username=username).exists():
+        return Response({'error': 'This username is already taken.'}, status=400)
+    
+    if User.objects.filter(email=email).exists():
+        return Response({'error': 'This email is already registered.'}, status=400)
+
     try:
+        # 3. Minta Supabase kirim OTP (Sign Up)
+        # Kita tidak peduli user di Supabase Auth, kita cuma butuh OTP-nya.
         res = supabase.auth.sign_up({
             "email": email,
-            "password": password,
+            "password": password, # Password ini cuma buat syarat Supabase, yg asli nanti di Django
         })
-        
+
+        # Cek response spesifik Supabase kalau user double
         if res.user and getattr(res.user, 'identities', []) == []:
-             return Response({'error': 'Email is already registered.'}, status=400)
+             return Response({'error': 'This email is already registered in OTP system.'}, status=400)
 
         return Response({'message': 'OTP sent to email!'}, status=201)
 
     except Exception as e:
-        print("ERROR SUPABASE:", str(e))
+        # Tangkap error dari Supabase
         return Response({'error': str(e)}, status=400)
 
 
-# --- B. VERIFY OTP (Validate & Sync to Django) ---
+# --- B. VERIFY OTP (Validate & Save to Django) ---
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verify_otp(request):
     email = request.data.get('email')
     token = request.data.get('otp')      
-    password = request.data.get('password') 
+    password = request.data.get('password') # Password dari Frontend
+
+    if not username or not email or not token or not password:
+        return Response({'error': 'Missing required fields.'}, status=400)
 
     try:
+        # 1. Verifikasi OTP ke Supabase
         res = supabase.auth.verify_otp({
             "email": email,
             "token": token,
             "type": "signup"
         })
 
-        if not User.objects.filter(username=email).exists():
-            User.objects.create_user(username=email, email=email, password=password)
-        
-        return Response({'message': 'Verification successful & User saved to Django!'}, status=201)
+        # 2. Validasi Terakhir Sebelum Simpan ke Django
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username was taken during verification.'}, status=400)
+
+        # 3. SIMPAN USER KE DJANGO (The Real Database)
+        # Fungsi create_user otomatis nge-hash password pakai PBKDF2 (Aman untuk Login nanti)
+        if not User.objects.filter(email=email).exists():
+            User.objects.create_user(
+                username=username, 
+                email=email, 
+                password=password
+            )
+            return Response({'message': 'Verification successful & User created!'}, status=201)
+        else:
+            return Response({'error': 'User with this email already exists in Database.'}, status=400)
 
     except Exception as e:
-        return Response({'error': 'Invalid or expired OTP.'}, status=400)
+        return Response({'error': 'Invalid OTP code or expired.'}, status=400)
 
 
 # --- C. LOGIN (Proxy Login) ---
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_user(request):
-    email = request.data.get('email')
+    # 1. TANGKAP DATA (Support 'username' atau 'identifier' dari frontend)
+    # Frontend kamu tadi ngirimnya key 'username', jadi kita ambil itu.
+    input_ident = request.data.get('username') or request.data.get('identifier')
     password = request.data.get('password')
 
-    try:
-        # 1. Django Login ke Supabase (Cuma buat cek password benar/salah)
-        res = supabase.auth.sign_in_with_password({
-            "email": email,
-            "password": password
-        })
-        
-        # 2. Kalau password benar, cari user di database Django
+    if not input_ident or not password:  
+        return Response({'error': 'Please provide both username/email and password.'}, status=400)
+
+    # 2. LOGIKA CEK EMAIL vs USERNAME
+    # Kita harus cari tahu 'username' aslinya apa buat dikasih ke fungsi authenticate
+    username_to_auth = input_ident
+
+    if '@' in input_ident:
+        # Kalau user login pakai EMAIL, kita cari dulu username aslinya di DB
         try:
-            user = User.objects.get(username=email)
+            user_obj = User.objects.get(email=input_ident)
+            username_to_auth = user_obj.username
         except User.DoesNotExist:
-            user = User.objects.create_user(username=email, email=email, password=password)
+            # Kalau email gak ketemu, biarin lanjut biar nanti ditolak sama authenticate (security practice)
+            pass
+    
+    # 3. AUTENTIKASI PAKAI DJANGO (Bukan Supabase Client)
+    # Fungsi ini otomatis ngecek password hash PBKDF2 punya Django
+    user = authenticate(username=username_to_auth, password=password)
+
+    if user is not None:
+        # --- LOGIN SUKSES ---
         
-        # 3. BIKIN TOKEN DJANGO (Kartu Member Resmi)
+        # Cek apakah user aktif
+        if not user.is_active:
+             return Response({'error': 'User account is disabled.'}, status=401)
+
+        # Bikin/Ambil Token
         token, created = Token.objects.get_or_create(user=user)
 
-        # 4. Cek Profile
+        # Cek Profile
         has_profile = hasattr(user, 'profile')
 
         return Response({
             'message': 'Login successful!',
             'token': token.key, 
-            'email': email,
+            'email': user.email, 
+            'username': user.username,
             'has_profile': has_profile
         }, status=200)
 
-    except Exception as e:
-        return Response({'error': 'Invalid email or password.'}, status=401)
+    else:
+        # --- LOGIN GAGAL ---
+        return Response({'error': 'Invalid username/email or password.'}, status=401)
 
 
 # --- D. MANAGE PROFILE (UPDATED) ---
