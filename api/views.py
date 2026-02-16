@@ -12,6 +12,7 @@ from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerial
 
 import traceback
 
+
 # ============================================================================
 # BAGIAN A: AUTHENTICATION (REGISTER, LOGIN, OTP)
 # ============================================================================
@@ -171,19 +172,28 @@ def manage_profile(request):
         serializer = UserDetailSerializer(user)
         return Response(serializer.data)
 
-    # B. POST: Bikin profile baru (biasanya pas onboarding)
+    # B. POST: Handle CREATE atau UPDATE sekaligus (Jalan Pintas/Upsert)
     elif request.method == 'POST':
-        if hasattr(user, 'profile'):
-            return Response({'error': 'Profile sudah ada.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        serializer = UserProfileSerializer(data=request.data)
+        try:
+            # 1. Cek dulu, user ini udah punya profile belum?
+            profile = user.profile
+            # 2. Kalau ADA, berarti ini UPDATE. Masukkan 'instance=profile'
+            # partial=True biar gak error kalau ada field yang kosong
+            serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        except UserProfile.DoesNotExist:
+            # 3. Kalau TIDAK ADA, berarti CREATE Baru. (instance gak perlu diisi)
+            profile = None
+            serializer = UserProfileSerializer(data=request.data)
+
         if serializer.is_valid():
+            # Simpan (Kalau create baru, user ditempel di sini)
             serializer.save(user=user)
             full_data = UserDetailSerializer(user).data
-            return Response(full_data, status=status.HTTP_201_CREATED)
+            return Response(full_data, status=status.HTTP_200_OK)
+            
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    # C. PATCH: Update sebagian data profile
+    # C. PATCH: Masih berguna kalau mau update spesifik field
     elif request.method == 'PATCH':
         try:
             profile = user.profile
