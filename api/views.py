@@ -471,3 +471,31 @@ def get_all_shoes(request):
         return Response(response.data if response.data else [], status=200)
     except Exception:
         return Response({'error': 'Gagal mengambil data sepatu.'}, status=500)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_shoe_by_id(request, id): # 'id' sekarang menerima string seperti "R158"
+    try:
+        # Kita cari berdasarkan field 'shoe_id' di model Shoe kamu
+        shoe = Shoe.objects.get(shoe_id=id) 
+        serializer = ShoeSerializer(shoe)
+        response_data = serializer.data
+        
+        # Tambahkan field pendukung agar UI tetap rapi
+        response_data['mainImage'] = shoe.img_url
+        response_data['model'] = shoe.name
+        
+        # Ambil Rating Real-time dari Supabase
+        try:
+            rev_res = supabase.table('reviews').select('rating').eq('shoe_id', shoe.shoe_id).execute()
+            if rev_res.data:
+                avg = sum(r['rating'] for r in rev_res.data) / len(rev_res.data)
+                response_data['rating'] = round(avg, 1)
+            else:
+                response_data['rating'] = 0
+        except:
+            response_data['rating'] = 0
+
+        return Response(response_data, status=200)
+    except Shoe.DoesNotExist:
+        return Response({'error': f'Sepatu {id} tidak ditemukan.'}, status=404)
