@@ -13,14 +13,24 @@ from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerial
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
+    username = request.data.get('username')
     email = request.data.get('email')
     password = request.data.get('password')
+
+    # Validating user input
+    if not username or not email or not password:
+        return Response({'error': 'All fields are required.'}, status=400)
+        
+    if User.objects.filter(username=username).exists():
+        return Response({'username': 'This username is already taken.'}, status=400)
+
 
     try:
         res = supabase.auth.sign_up({
             "email": email,
             "password": password,
         })
+
         
         if res.user and getattr(res.user, 'identities', []) == []:
              return Response({'error': 'Email is already registered.'}, status=400)
@@ -36,9 +46,13 @@ def register_user(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verify_otp(request):
+    username = request.data.get('username')
     email = request.data.get('email')
     token = request.data.get('otp')      
     password = request.data.get('password') 
+
+    if not username:
+        return Response({'error': 'Username is missing.'}, status=400)
 
     try:
         res = supabase.auth.verify_otp({
@@ -47,8 +61,16 @@ def verify_otp(request):
             "type": "signup"
         })
 
-        if not User.objects.filter(username=email).exists():
-            User.objects.create_user(username=email, email=email, password=password)
+        # Kalo nabrak antara user 
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username was taken during verification. Please register again.'}, status=400)
+
+        if not User.objects.filter(email=email).exists():
+            User.objects.create_user(
+                username=username, 
+                email=email, 
+                password=password
+            )
         
         return Response({'message': 'Verification successful & User saved to Django!'}, status=201)
 
