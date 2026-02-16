@@ -91,9 +91,13 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
-    # Kalau ketemu DATABASE_URL (baik di Railway atau di terminal laptop)
+    # Kita bongkar URL-nya, tapi kali ini kita suntikkan "Obat Kuat"
     DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL)
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=60,       # 1. Umur koneksi cuma 60 detik (biar gak basi)
+            conn_health_checks=True, # 2. Cek dulu "kabelnya" nyambung gak sebelum request
+        )
     }
 else:
     # Pilihan terakhir kalau emang gak ada koneksi internet/env
