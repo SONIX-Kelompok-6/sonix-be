@@ -399,7 +399,8 @@ def toggle_favorite(request):
             # Kalau tidak ada, TAMBAH
             supabase.table('favorites').insert({'user_id': user_id, 'shoe_id': shoe_id}).execute()
             return Response({'message': 'Ditambahkan ke favorit', 'is_favorite': True}, status=201)
-    except Exception:
+    except Exception as e:
+        print("ERROR ASLI:", str(e))
         return Response({'error': 'Gagal update database.'}, status=500)
 
 @api_view(['GET'])
