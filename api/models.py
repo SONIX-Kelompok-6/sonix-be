@@ -66,7 +66,6 @@ class Shoe(models.Model):
     lug_dept_mm = models.FloatField(blank=True, null=True)
 
     # --- 3. Fitur Boolean (0 atau 1) ---
-    # Gunakan IntegerField agar aman membaca angka 0/1 dari database
     lightweight = models.IntegerField(blank=True, null=True)
     rocker = models.IntegerField(blank=True, null=True)
     removable_insole = models.IntegerField(blank=True, null=True)
