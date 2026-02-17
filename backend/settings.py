@@ -15,6 +15,7 @@ from pathlib import Path
 import os
 import dj_database_url
 
+# Nyalakan kalau mau run di lokal
 # from dotenv import load_dotenv
 
 # load_dotenv()
