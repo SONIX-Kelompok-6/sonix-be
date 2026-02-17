@@ -50,20 +50,79 @@ class UserProfile(models.Model):
 
 # --- 3. Shoe (TETAP SAMA) ---
 class Shoe(models.Model):
+    # --- 1. Identitas Utama ---
     shoe_id = models.CharField(max_length=50, primary_key=True)
-    brand = models.CharField(max_length=100)
+    brand = models.CharField(max_length=100, blank=True, null=True) # Tambahkan Brand!
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    weight_lab_oz = models.FloatField(blank=True, null=True)
     img_url = models.URLField(max_length=500, blank=True, null=True)
+    
+    # --- 2. Spesifikasi Fisik (Measurements) ---
+    weight_lab_oz = models.FloatField(blank=True, null=True)
+    drop_lab_mm = models.FloatField(blank=True, null=True)
+    heel_lab_mm = models.FloatField(blank=True, null=True)
+    forefoot_lab_mm = models.FloatField(blank=True, null=True)
+    lug_dept_mm = models.FloatField(blank=True, null=True)
+
+    # --- 3. Fitur Boolean (0 atau 1) ---
+    # Gunakan IntegerField agar aman membaca angka 0/1 dari database
+    lightweight = models.IntegerField(blank=True, null=True)
+    rocker = models.IntegerField(blank=True, null=True)
+    removable_insole = models.IntegerField(blank=True, null=True)
+    waterproof = models.IntegerField(blank=True, null=True)
+    water_repellent = models.IntegerField(blank=True, null=True)
+
+    # --- 4. Pace / Kegunaan ---
+    pace_daily_running = models.IntegerField(blank=True, null=True)
+    pace_tempo = models.IntegerField(blank=True, null=True)
+    pace_competition = models.IntegerField(blank=True, null=True)
+
+    # --- 5. Terrain ---
+    terrain_road = models.IntegerField(blank=True, null=True) # Tambahkan ini jika ada
+    terrain_light = models.IntegerField(blank=True, null=True)
+    terrain_moderate = models.IntegerField(blank=True, null=True)
+    terrain_technical = models.IntegerField(blank=True, null=True)
+
+    # --- 6. Arch Type ---
+    arch_neutral = models.IntegerField(blank=True, null=True)
+    arch_stability = models.IntegerField(blank=True, null=True)
+
+    # --- 7. Plate ---
+    plate_rock_plate = models.IntegerField(blank=True, null=True)
+    plate_carbon_plate = models.IntegerField(blank=True, null=True)
+
+    # --- 8. Lab Scores (Durability, Flexibility, etc) ---
+    stiffness_scaled = models.IntegerField(blank=True, null=True)
+    torsional_rigidity = models.IntegerField(blank=True, null=True)
+    heel_stiff = models.IntegerField(blank=True, null=True)
+    midsole_softness = models.IntegerField(blank=True, null=True)
+    shock_absorption = models.IntegerField(blank=True, null=True)
+    energy_return = models.IntegerField(blank=True, null=True)
+    traction_scaled = models.IntegerField(blank=True, null=True)
+
+    # --- 9. Durability Specifics ---
+    toebox_durability = models.IntegerField(blank=True, null=True)
+    heel_durability = models.IntegerField(blank=True, null=True)
+    outsole_durability = models.IntegerField(blank=True, null=True)
+    breathability_durability = models.IntegerField(blank=True, null=True) # Kadang namanya breathability
+
+    # --- 10. Fit & Width ---
+    width_fit = models.IntegerField(blank=True, null=True)
+    toebox_width = models.IntegerField(blank=True, null=True)
+
+    # --- 11. Season ---
+    season_summer = models.IntegerField(blank=True, null=True)
+    season_winter = models.IntegerField(blank=True, null=True)
+    season_all = models.IntegerField(blank=True, null=True)
 
     class Meta:
         db_table = 'shoes'
-        managed = False 
+        managed = False  # Django tidak akan utak-atik tabel asli di Supabase
 
     def __str__(self):
-        return f"{self.brand} {self.name}"
+        return f"{self.name} - {self.name}"
+    
 
 # --- 4. Review (TETAP SAMA) ---
 class Review(models.Model):
