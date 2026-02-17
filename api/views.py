@@ -235,7 +235,7 @@ def forgot_password(request):
         }, status=404)
     try:
         # direct to reset
-        redirect_url = 'https://sonix-rush.vercel.app/forgot-password'
+        redirect_url = 'https://sonix-rush.vercel.app/update-password'
         supabase.auth.reset_password_email(email, options={'redirect_to': redirect_url})
         return Response({'message': 'Link reset password has been sent to your email.'})
     except Exception as e:
