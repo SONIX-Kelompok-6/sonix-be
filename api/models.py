@@ -79,7 +79,6 @@ class Shoe(models.Model):
     pace_competition = models.IntegerField(blank=True, null=True)
 
     # --- 5. Terrain ---
-    terrain_road = models.IntegerField(blank=True, null=True) # Tambahkan ini jika ada
     terrain_light = models.IntegerField(blank=True, null=True)
     terrain_moderate = models.IntegerField(blank=True, null=True)
     terrain_technical = models.IntegerField(blank=True, null=True)
@@ -105,7 +104,7 @@ class Shoe(models.Model):
     toebox_durability = models.IntegerField(blank=True, null=True)
     heel_durability = models.IntegerField(blank=True, null=True)
     outsole_durability = models.IntegerField(blank=True, null=True)
-    breathability_durability = models.IntegerField(blank=True, null=True) # Kadang namanya breathability
+    breathability_scaled = models.IntegerField(blank=True, null=True) # Kadang namanya breathability
 
     # --- 10. Fit & Width ---
     width_fit = models.IntegerField(blank=True, null=True)
@@ -121,7 +120,7 @@ class Shoe(models.Model):
         managed = False  # Django tidak akan utak-atik tabel asli di Supabase
 
     def __str__(self):
-        return f"{self.name} - {self.name}"
+        return f"{self.brand} - {self.name}"
     
 
 # --- 4. Review (TETAP SAMA) ---
