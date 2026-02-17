@@ -216,9 +216,10 @@ def manage_profile(request):
 @permission_classes([AllowAny])
 def resend_otp(request):
     email = request.data.get('email')
+
     try:
         supabase.auth.resend({"type": "signup", "email": email})
-        return Response({'message': 'OTP berhasil dikirim ulang!'}, status=200)
+        return Response({'message': 'OTP resent successfully!'}, status=200)
     except Exception as e:
         return Response({'error': str(e)}, status=400)
 
@@ -226,12 +227,17 @@ def resend_otp(request):
 @permission_classes([AllowAny])
 def forgot_password(request):
     email = request.data.get('email')
-    if not email: return Response({'error': 'Email wajib diisi.'}, status=400)
+    if not email: return Response({'error': 'Please enter your email address.'}, status=400)
+    
+    if not User.objects.filter(email__iexact=email).exists():
+        return Response({
+            'error': 'We couldn\'t find that email. Would you like to sign up?'
+        }, status=404)
     try:
-        # Arahkan ke halaman frontend React kamu buat reset
-        redirect_url = 'http://localhost:5173/update-password'
+        # direct to reset
+        redirect_url = 'https://sonix-rush.vercel.app/forgot-password'
         supabase.auth.reset_password_email(email, options={'redirect_to': redirect_url})
-        return Response({'message': 'Link reset password telah dikirim ke email.'})
+        return Response({'message': 'Link reset password has been sent to your email.'})
     except Exception as e:
         return Response({'error': str(e)}, status=400)
 
@@ -241,7 +247,7 @@ def reset_password_confirm(request):
     access_token = request.data.get('access_token')
     new_password = request.data.get('new_password')
     if not access_token or not new_password:
-        return Response({'error': 'Token dan password baru wajib diisi.'}, status=400)
+        return Response({'error': 'Token and new password are required'}, status=400)
     try:
         # 1. Update di Supabase (Sistem Auth)
         supabase.auth.set_session(access_token, request.data.get('refresh_token', '')) 
@@ -255,7 +261,7 @@ def reset_password_confirm(request):
             django_user.save()
         except User.DoesNotExist:
             pass
-        return Response({'message': 'Password berhasil diubah.'})
+        return Response({'message': 'All set! Your password has been updated.'})
     except Exception as e:
         return Response({'error': str(e)}, status=400)
 
@@ -265,9 +271,9 @@ def logout_user(request):
     try:
         # Hapus token dari database biar gak bisa dipake lagi
         request.user.auth_token.delete()
-        return Response({'message': 'Logout berhasil!'}, status=200)
+        return Response({'message': 'Logout succesfully!'}, status=200)
     except Exception:
-        return Response({'error': 'Gagal logout.'}, status=500)
+        return Response({'error': 'Couldn\'t log out. Please try again.'}, status=500)
 
 
 # ============================================================================
@@ -316,7 +322,7 @@ def search_shoes(request):
             })
         return Response(final_results, status=200)
     except Exception as e:
-        return Response({'error': 'Gagal mencari sepatu.'}, status=500)
+        return Response({'error': 'Search failed. Try again later.'}, status=500)
 
 # --- 2. GET SHOE DETAIL (Lengkap dengan Review) ---
 @api_view(['GET'])
@@ -358,7 +364,7 @@ def get_shoe_detail(request, slug):
                 total_rating += rv.get('rating', 0)
                 formatted_reviews.append({
                     'id': rv.get('id'),
-                    'user': display_name, # Username asli
+                    'user': display_name, 
                     'avatar': f"https://api.dicebear.com/7.x/avataaars/svg?seed={display_name}", 
                     'date': rv.get('created_at', '')[:10],
                     'text': rv.get('review_text', ''),
@@ -373,7 +379,7 @@ def get_shoe_detail(request, slug):
 
         return Response(response_data, status=200)
     except Shoe.DoesNotExist:
-        return Response({'error': 'Sepatu tidak ditemukan.'}, status=404)
+        return Response({'error': 'No shoes found.'}, status=404)
 
 
 # ============================================================================
