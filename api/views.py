@@ -478,33 +478,30 @@ def add_review(request):
 @permission_classes([AllowAny]) 
 def get_all_shoes(request):
     try:
-        # 1. Ambil SEMUA Sepatu dari Supabase
-        response = supabase.table('shoes').select('*').order('id').execute()
+        # 1. Ambil SEMUA Sepatu dari Supabase (FIXED: Order by shoe_id)
+        response = supabase.table('shoes').select('*').order('shoe_id', desc=False).execute()
         shoes = response.data if response.data else []
 
-        # 2. Ambil SEMUA Review (Cukup kolom shoe_id dan rating biar ringan)
-        # Kita butuh ini buat ngitung rata-rata tanpa nembak DB berkali-kali
+        # 2. Ambil SEMUA Review
         reviews_res = supabase.table('reviews').select('shoe_id, rating').execute()
         reviews = reviews_res.data if reviews_res.data else []
 
-        # 3. Hitung Rating di Memory (Python Dictionary)
-        # Hasilnya: {'nike-pegasus': [5, 4, 5], 'adidas-ultra': [3, 4], ...}
+        # 3. Hitung Rating
         rating_map = {}
         for r in reviews:
             s_id = r['shoe_id']
             if s_id not in rating_map: rating_map[s_id] = []
             rating_map[s_id].append(r['rating'])
 
-        # 4. Tempel Rating ke List Sepatu
+        # 4. Tempel Rating
         for shoe in shoes:
             s_id = shoe.get('shoe_id')
             if s_id in rating_map:
                 ratings = rating_map[s_id]
-                # Hitung rata-rata: Total Bintang / Jumlah Review
                 avg = sum(ratings) / len(ratings)
-                shoe['rating'] = round(avg, 1) # Contoh: 4.5
+                shoe['rating'] = round(avg, 1)
             else:
-                shoe['rating'] = 0 # Kalau gak ada review, set 0
+                shoe['rating'] = 0
 
         return Response(shoes, status=200)
     except Exception as e:
