@@ -20,8 +20,8 @@ import dj_database_url
 
 # load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# # Build paths inside the project like this: BASE_DIR / 'subdir'.
+# BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -38,7 +38,7 @@ ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     'https://sonix-be-deploy-production.up.railway.app',
     'https://sonix-rush.vercel.app',
-    'https://sonix-rush-beta.vercel.app',
+    'https://rush-sonix.my.id',
 ]
 
 # Application definition
@@ -169,7 +169,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://sonix-rush.vercel.app",
-    # "https://sonix-rush-beta.vercel.app",
+    "https://rush-sonix.my.id",
 ]
 AUTH_USER_MODEL = 'api.User'
 
