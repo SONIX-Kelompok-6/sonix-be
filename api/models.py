@@ -4,9 +4,7 @@ from django.conf import settings # Penting untuk mereferensikan User model kita
 from django.utils.text import slugify
 
 # --- 1. Custom User Model (BARU) ---
-class User(AbstractUser):
-    # ID tidak perlu ditulis, Django otomatis pakai AutoField (Angka 1, 2, 3...)
-    
+class User(AbstractUser):    
     # Hapus kolom nama depan & belakang (Biar database bersih)
     first_name = None
     last_name = None
@@ -137,3 +135,18 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review by User {self.user_id} on Shoe {self.shoe_id}"
+    
+
+# --- 5. Favorite (BARU) ---
+class Favorite(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorites')
+    shoe_id = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'favorites' 
+        managed = False # Django tidak akan utak-atik tabel asli di Supabase
+        unique_together = ('user', 'shoe_id') # Mencegah 1 user memfavoritkan sepatu yang sama berkali-kali
+
+    def __str__(self):
+        return f"User {self.user.username} favorited {self.shoe_id}"

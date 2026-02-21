@@ -7,7 +7,7 @@ from django.contrib.auth.models import update_last_login # PENTING: Untuk update
 from django.contrib.auth import authenticate
 from .supabase_client import supabase
 # Import model User custom kita dan model lainnya
-from .models import User, UserProfile, Shoe, Review 
+from .models import User, UserProfile, Shoe, Review, Favorite
 from .serializers import UserProfileSerializer, ShoeSerializer, UserDetailSerializer    
 
 import traceback
@@ -389,25 +389,28 @@ def get_shoe_detail(request, slug):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def toggle_favorite(request):
-    user_id = request.user.id # Ambil ID Integer user
+    user = request.user # Langsung ambil object user-nya
     shoe_id = request.data.get('shoe_id')
-    if not shoe_id: return Response({'error': 'shoe_id wajib diisi.'}, status=400)
+    
+    if not shoe_id: 
+        return Response({'error': 'shoe_id wajib diisi.'}, status=400)
 
     try:
-        # Cek apakah sudah ada di favorit
-        cek_fav = supabase.table('favorites').select('*').eq('user_id', user_id).eq('shoe_id', shoe_id).execute()
+        # Cek apakah sudah ada di favorit menggunakan Django ORM
+        favorite_obj = Favorite.objects.filter(user=user, shoe_id=shoe_id).first()
         
-        if len(cek_fav.data) > 0:
+        if favorite_obj:
             # Kalau ada, HAPUS
-            supabase.table('favorites').delete().eq('user_id', user_id).eq('shoe_id', shoe_id).execute()
+            favorite_obj.delete()
             return Response({'message': 'Dihapus dari favorit', 'is_favorite': False}, status=200)
         else:
             # Kalau tidak ada, TAMBAH
-            supabase.table('favorites').insert({'user_id': user_id, 'shoe_id': shoe_id}).execute()
+            Favorite.objects.create(user=user, shoe_id=shoe_id)
             return Response({'message': 'Ditambahkan ke favorit', 'is_favorite': True}, status=201)
+            
     except Exception as e:
-        print("ERROR ASLI:", str(e))
-        return Response({'error': 'Gagal update database.'}, status=500)
+        print("ERROR ASLI FAVORITE:", str(e))
+        return Response({'error': f'Gagal update database: {str(e)}'}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -462,17 +465,20 @@ def add_review(request):
 
     if not shoe_id or not rating or not text:
         return Response({'error': 'Data review tidak lengkap.'}, status=400)
+        
     try:
-        # Simpan review ke Supabase
-        supabase.table('reviews').insert({
-            'shoe_id': shoe_id,
-            'user_id': user_id, # Integer
-            'rating': int(rating),
-            'review_text': text
-        }).execute()
+        # Gunakan Django ORM! Jauh lebih aman, anti-mabuk memori, dan tembus RLS otomatis.
+        Review.objects.create(
+            shoe_id=shoe_id,
+            user_id=user_id,
+            rating=int(rating),
+            review_text=text
+        )
         return Response({'message': 'Review berhasil ditambahkan!'}, status=201)
-    except Exception:
-        return Response({'error': 'Gagal menyimpan review.'}, status=500)
+        
+    except Exception as e:
+        print("ERROR ASLI REVIEW:", str(e))
+        return Response({'error': f'Gagal menyimpan review: {str(e)}'}, status=500)
 
 @api_view(['GET'])
 @permission_classes([AllowAny]) 
