@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings # Penting untuk mereferensikan User model kita
@@ -139,6 +141,9 @@ class Review(models.Model):
 
 # --- 5. Favorite (BARU) ---
 class Favorite(models.Model):
+    # 🔥 2. TAMBAHKAN BARIS INI: Kasih tahu Django kalau id-nya adalah UUID
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorites')
     shoe_id = models.CharField(max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -146,7 +151,7 @@ class Favorite(models.Model):
     class Meta:
         db_table = 'favorites' 
         managed = False # Django tidak akan utak-atik tabel asli di Supabase
-        unique_together = ('user', 'shoe_id') # Mencegah 1 user memfavoritkan sepatu yang sama berkali-kali
+        unique_together = ('user', 'shoe_id')
 
     def __str__(self):
         return f"User {self.user.username} favorited {self.shoe_id}"
