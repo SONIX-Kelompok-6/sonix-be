@@ -233,10 +233,21 @@ def forgot_password(request):
         return Response({
             'error': 'We couldn\'t find that email. Would you like to sign up?'
         }, status=404)
+        
     try:
-        # direct to reset
-        redirect_url = 'https://sonix-rush.vercel.app/update-password'
+        # 1. Tangkap asal domain dari request header (contoh: https://sonix-rush.vercel.app)
+        origin = request.META.get('HTTP_ORIGIN')
+        
+        # 2. Kasih default fallback (misal kalau di-test via Postman yang nggak ada origin-nya)
+        if not origin:
+            origin = 'https://sonix-rush.vercel.app'
+            
+        # 3. Buat URL dinamis!
+        redirect_url = f'{origin}/update-password'
+        
+        # 4. Kirim ke Supabase
         supabase.auth.reset_password_email(email, options={'redirect_to': redirect_url})
+        
         return Response({'message': 'Link reset password has been sent to your email.'})
     except Exception as e:
         return Response({'error': str(e)}, status=400)
